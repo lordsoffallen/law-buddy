@@ -1,0 +1,14 @@
+embeddings_model_checkpoint: sentence-transformers/distiluse-base-multilingual-cased-v1
+qa_model_checkpoint: deutsche-telekom/bert-multi-english-german-squad2
+# This parameter controls the embeddings generation step. If you get GPU errors, try to reduce this
+# Increasing this slows down the process a bit
+batch_size: 400
+
+# FAISS index name
+index_name: embeddings
+
+# Define how many similar law texts to be passed into the QA model
+top_k: 3
+
+# Define user question here or override it during the runtime via --query
+query: "Wie viel Tage hat man als Arbeitnehmer für den Urlaub?"

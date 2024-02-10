@@ -1,0 +1,24 @@
+laws#api:
+  type: law_buddy.extras.api.GermanLawAPIDataset
+  cachepath: data/00_cache
+
+laws#pkl:
+  type: pickle.PickleDataset
+  filepath: data/01_raw/laws.pkl
+
+laws#hf:
+  type: law_buddy.extras.hf.HFDataset
+  filepath: data/02_intermediate/
+
+# Git-lfs limits, use #hf version if any issues arise
+embeddings:
+  type: law_buddy.extras.hf.HFDataset
+  filepath: data/04_feature/
+
+embeddings#hf:
+  type: huggingface.HFDataset
+  dataset_name: ftopal/german-law-dataset
+
+vectordb:
+  type: law_buddy.extras.hf.HFDataset
+  filepath: data/05_model_input/
