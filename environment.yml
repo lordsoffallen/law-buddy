@@ -1,5 +1,6 @@
 name: law-buddy
 channels:
+  - pytorch
   - conda-forge
   - defaults
 dependencies:
@@ -11,10 +12,11 @@ dependencies:
   - html5lib
   - beautifulsoup4
   - transformers
-  - pytorch
   - cpuonly
-  - notebook
+  - pytorch
   - jupyter
+  - notebook
+  - faiss-cpu==1.7.2
   - pip:
       - unstructured
 prefix: /home/ftopal/miniconda3/envs/law-buddy
