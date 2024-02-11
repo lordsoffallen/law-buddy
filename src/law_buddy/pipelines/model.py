@@ -1,22 +1,15 @@
-from datasets import Dataset
-from transformers import AutoModelForQuestionAnswering, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
+from datasets import Dataset, DatasetDict
+from transformers import pipeline
 from transformers.modeling_outputs import QuestionAnsweringModelOutput
-from .tools import device, batch_forward
 from .embeddings import get_embeddings_model_and_tokenizer, get_embeddings
 from typing import Any
+from nltk import sent_tokenize, word_tokenize
+
 import torch
 
 
-def get_qa_model_and_tokenizer(checkpoint: str) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-    model = AutoModelForQuestionAnswering.from_pretrained(checkpoint).to(device)
-    # model = torch.compile(model)    # Speed up inference
-
-    return model, tokenizer
-
-
 def find_related_laws(
-    ds: Dataset,
+    ds: Dataset | DatasetDict,
     checkpoint: str,
     query: str,
     index_name: str = 'embeddings',
@@ -27,6 +20,9 @@ def find_related_laws(
 
     model, tokenizer = get_embeddings_model_and_tokenizer(checkpoint)
     embedding = get_embeddings(model, tokenizer, [query], batch_size).cpu().detach().numpy()
+
+    if isinstance(ds, DatasetDict):
+        ds = ds['train']    # select the train split if it is a dict
 
     # Add FAISS Index as vector db
     ds = ds.add_faiss_index(column=index_name)
@@ -74,12 +70,14 @@ def answer(
     question: str,
     embeddings_checkpoint: str,
     qa_checkpoint: str,
-    vectordb: Dataset,
+    vectordb: Dataset | DatasetDict,
     index_name: str = 'embeddings',
     batch_size: int = 400,
     top_k_context: int = 3,
-):
-    """
+    top_k_answer: int = 3,
+    log_info: bool = True,
+) -> list[dict] | dict:
+    """ Given a user query, retrieve the most likely answer.
 
     Parameters
     ----------
@@ -89,7 +87,7 @@ def answer(
         Model checkpoint for sentence embeddings.
     qa_checkpoint: str
         Model checkpoint for Q&A model
-    vectordb: Dataset
+    vectordb: Dataset | DatasetDict
         A Dataset that contains the embeddings. Here we simply use FAISS index to search
     index_name: str
         Name of the column that would be used in FAISS as index. This should contain the text embeddings.
@@ -97,14 +95,20 @@ def answer(
         Batch size for long context processing. If memory issues occur, reducing these value would help.
     top_k_context: int
         Number of relevant information to use in the context for the Q&A model. Higher context means longer processing
-        times. Also note that depending the input language order of the context can be different so for small values
+        times. Also note that depending on the input language order of the context can be different so for small values
         using German or English in the question can result in a different result.
+    top_k_answer: int
+        Number of possible answers to return from the QA model.
+    log_info: bool
+        Define whether useful information about the background should be logged or not
 
     Returns
     -------
-
+    answers:
+        If top_k_answer is > 1 then returns list of dicts, otherwise dict
     """
-    model, tokenizer = get_qa_model_and_tokenizer(qa_checkpoint)
+
+    qa_pipeline = pipeline('question-answering', model=qa_checkpoint, tokenizer=qa_checkpoint)
 
     _, laws = find_related_laws(
         vectordb,
@@ -115,26 +119,37 @@ def answer(
         index_name=index_name,
     )
 
-    # Join top 3 laws together as a context to QA model
+    if log_info:
+        laws = laws.map(
+            lambda x: {
+                "char_count": len(x['text']),
+                "word_count": len(word_tokenize(x['text'], language='german')),
+                "sent_count": len(sent_tokenize(x['text'], language='german')),
+            }
+        )
+
+        for i, law in enumerate(laws):
+            print(
+                f"Context {i}: "
+                f"Total Characters: {law['char_count']}, "
+                f"Total Words: {law['word_count']} "
+                f"Total Sentences: {law['sent_count']}"
+            )
+
+    # Join top k laws together as a context to QA model
     context = "\n".join(laws['text'])
 
-    inputs = tokenizer(
-        question,
-        context,
-        stride=int(tokenizer.model_max_length / 2),
-        max_length=tokenizer.model_max_length,
-        padding="longest",
-        truncation="only_second",
-        return_overflowing_tokens=True,
-        return_offsets_mapping=True,
-        return_tensors='pt',
-    )
+    answers = qa_pipeline(question=question, context=context, top_k=top_k_answer)
 
-    output = batch_forward(
-        model=model,
-        encoded_input=inputs,
-        input_filter_keys=['offset_mapping', 'overflow_to_sample_mapping'],
-        batch_size=batch_size
-    )
+    return answers
 
-    process_qa_output(output, inputs)
+
+def print_answers(answers: list[dict] | dict):
+    def _print(r: dict):
+        print(f"Response: {r['answer']} Confidence: {r['score']}")
+
+    if isinstance(answers, list):
+        for a in answers:
+            _print(a)
+    else:
+        _print(answers)

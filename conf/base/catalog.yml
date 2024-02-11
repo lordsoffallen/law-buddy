@@ -6,7 +6,7 @@ laws#pkl:
   type: pickle.PickleDataset
   filepath: data/01_raw/laws.pkl
 
-laws#hf:
+laws:
   type: law_buddy.extras.hf.HFDataset
   filepath: data/02_intermediate/
 
@@ -18,7 +18,3 @@ embeddings:
 embeddings#hf:
   type: huggingface.HFDataset
   dataset_name: ftopal/german-law-dataset
-
-vectordb:
-  type: law_buddy.extras.hf.HFDataset
-  filepath: data/05_model_input/

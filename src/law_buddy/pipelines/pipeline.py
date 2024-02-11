@@ -1,36 +1,34 @@
 from kedro.pipeline import Pipeline, pipeline, node
 from .data import create_dataset
 from .embeddings import compute_embeddings
-from .model import add_faiss_index, find_related_laws
+from .model import answer, print_answers
 
 
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline([
         node(lambda x: x, inputs='laws#api', outputs='laws#pkl', name='fetch_laws'),
-        node(create_dataset, inputs='laws#pkl', outputs='laws#hf', name='create_dataset'),
+        node(create_dataset, inputs='laws#pkl', outputs='laws', name='create_dataset'),
         node(
             compute_embeddings,
-            inputs=['laws#hf', 'params:embeddings_model_checkpoint', 'params:batch_size'],
+            inputs=['laws', 'params:embeddings_model_checkpoint', 'params:batch_size'],
             outputs='embeddings',
             name='compute_embeddings',
         ),
         node(
-            add_faiss_index,
-            inputs=['embeddings#hf', 'params:index_name'],
-            outputs='vectordb',
-            name='add_faiss_index'
-        ),
-        node(
-            find_related_laws,
+            answer,
             inputs=dict(
-                ds='vectordb',
-                checkpoint='params:embeddings_model_checkpoint',
-                query='params:query',
+                question='params:query',
+                embeddings_checkpoint='params:embeddings_model_checkpoint',
+                qa_checkpoint='params:qa_model_checkpoint',
+                vectordb='embeddings#hf',       # If end to end pipeline executed, simply `embeddings` would work too.
                 index_name='params:index_name',
                 batch_size='params:batch_size',
-                top_k='params:top_k',
+                top_k_context='params:top_k_context',
+                top_k_answer='params:top_k_answer',
+                log_info='params:log_info',
             ),
-            outputs='scores_and_samples',
-            name='find_related_laws',
+            outputs='answers',
+            name='answer',
         ),
+        node(print_answers, inputs='answers', outputs=None, name='print_answers'),
     ])

@@ -8,7 +8,13 @@ batch_size: 400
 index_name: embeddings
 
 # Define how many similar law texts to be passed into the QA model
-top_k: 3
+top_k_context: 3
+
+# Define how many answers should be returned by the QA model
+top_k_answers: 3
+
+# Whether some information regarding the background process should be printed or not.
+log_info: True
 
 # Define user question here or override it during the runtime via --query
 query: "Wie viel Tage hat man als Arbeitnehmer für den Urlaub?"
