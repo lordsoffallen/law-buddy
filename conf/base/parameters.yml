@@ -17,4 +17,4 @@ top_k_answer: 3
 log_info: True
 
 # Define user question here or override it during the runtime via --query
-query: "Wie viel Tage hat man als Arbeitnehmer für den Urlaub?"
+query: "Ich arbeit als Software Entwickler. Wie viel Tage habe ich mindestens als Arbeitnehmer für den Urlaub?"
