@@ -3,7 +3,6 @@ from transformers import pipeline
 from transformers.modeling_outputs import QuestionAnsweringModelOutput
 from .embeddings import get_embeddings_model_and_tokenizer, get_embeddings
 from typing import Any
-from nltk import sent_tokenize, word_tokenize
 
 import torch
 
@@ -31,39 +30,36 @@ def find_related_laws(
     return scores, samples
 
 
-def process_qa_output(output: QuestionAnsweringModelOutput, inputs: dict | Any):
-    start_logits, end_logits = output.start_logits, output.end_logits
+def info_logger(ds: dict | Dataset):
+    from nltk import sent_tokenize, word_tokenize
+    import nltk
 
-    # we first mask the tokens that are not part of the context before taking the softmax.
-    # We also mask all the padding tokens (as flagged by the attention mask)
-    sequence_ids = inputs.sequence_ids()
+    def _get_infos():
+        return ds.map(
+            lambda x: {
+                "char_count": len(x['text']),
+                "word_count": len(word_tokenize(x['text'], language='german')),
+                "sent_count": len(sent_tokenize(x['text'], language='german')),
+            }
+        )
 
-    mask = [i != 1 for i in sequence_ids]     # Mask everything except the tokens of the context
-    mask[0] = False     # Unmask the [CLS] token
+    if isinstance(ds, dict):
+        ds = Dataset.from_dict(ds)
 
-    # Mask all the [PAD] tokens
-    mask = torch.logical_or(torch.tensor(mask)[None], (inputs["attention_mask"] == 0))
+    try:
+        ds = _get_infos()
+    except LookupError:
+        # nltk fails install packages
+        nltk.download('punkt')
+        ds = _get_infos()
 
-    start_logits[mask] = -10000
-    end_logits[mask] = -10000
-
-    # Convert logits to probs
-    start_probabilities = torch.nn.functional.softmax(start_logits, dim=-1)
-    end_probabilities = torch.nn.functional.softmax(end_logits, dim=-1)
-
-    #  Attribute a score to all possible spans of answer, then take the span with the best score
-    candidates = []
-
-    for start_probs, end_probs in zip(start_probabilities, end_probabilities):
-        scores = start_probs[:, None] * end_probs[None, :]
-        idx = torch.triu(scores).argmax().item()
-
-        start_idx = idx // scores.shape[1]
-        end_idx = idx % scores.shape[1]
-        score = scores[start_idx, end_idx].item()
-        candidates.append((start_idx, end_idx, score))
-
-    print(candidates)
+    for i, law in enumerate(ds):
+        print(
+            f"Context {i}: "
+            f"Total Characters: {law['char_count']}, "
+            f"Total Words: {law['word_count']} "
+            f"Total Sentences: {law['sent_count']}"
+        )
 
 
 def answer(
@@ -120,21 +116,7 @@ def answer(
     )
 
     if log_info:
-        laws = laws.map(
-            lambda x: {
-                "char_count": len(x['text']),
-                "word_count": len(word_tokenize(x['text'], language='german')),
-                "sent_count": len(sent_tokenize(x['text'], language='german')),
-            }
-        )
-
-        for i, law in enumerate(laws):
-            print(
-                f"Context {i}: "
-                f"Total Characters: {law['char_count']}, "
-                f"Total Words: {law['word_count']} "
-                f"Total Sentences: {law['sent_count']}"
-            )
+        info_logger(laws)
 
     # Join top k laws together as a context to QA model
     context = "\n".join(laws['text'])

@@ -11,7 +11,7 @@ index_name: embeddings
 top_k_context: 3
 
 # Define how many answers should be returned by the QA model
-top_k_answers: 3
+top_k_answer: 3
 
 # Whether some information regarding the background process should be printed or not.
 log_info: True
