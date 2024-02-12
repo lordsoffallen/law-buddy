@@ -1,11 +1,9 @@
 import numpy as np
 from datasets import Dataset, DatasetDict
 from transformers import pipeline
-from transformers.modeling_outputs import QuestionAnsweringModelOutput
+from .tools import device
 from .embeddings import get_embeddings_model_and_tokenizer, get_embeddings
 from typing import Any
-
-import torch
 
 
 def get_embedded_query(checkpoint: str, query: str, batch_size: int = 400):
@@ -46,10 +44,10 @@ def find_related_sections(
     if isinstance(ds, DatasetDict):
         ds = ds['train']
 
-    ds = (ds.with_format("pandas").select_columns(['text', 'sections', 'section_embeddings'])
-            .map(lambda df: df.explode(["sections", "section_embeddings"])))
+    ds = ds.with_format("pandas").select_columns(['text', 'sections', 'section_embeddings'])
+    df = ds[:].explode(["sections", "section_embeddings"]).reset_index(drop=True)
 
-    ds.reset_format()
+    ds = Dataset.from_pandas(df)
 
     # Add FAISS Index as vector db
     ds = ds.add_faiss_index(column=index_name)
@@ -57,16 +55,16 @@ def find_related_sections(
     return scores, samples
 
 
-def info_logger(ds: dict | Dataset):
+def info_logger(ds: dict | Dataset, column: str = 'text'):
     from nltk import sent_tokenize, word_tokenize
     import nltk
 
     def _get_infos():
         return ds.map(
             lambda x: {
-                "char_count": len(x['text']),
-                "word_count": len(word_tokenize(x['text'], language='german')),
-                "sent_count": len(sent_tokenize(x['text'], language='german')),
+                "char_count": len(x[column]),
+                "word_count": len(word_tokenize(x[column], language='german')),
+                "sent_count": len(sent_tokenize(x[column], language='german')),
             }
         )
 
@@ -126,7 +124,7 @@ def answer(
         If context['answer'] is > 1 then returns list of dicts, otherwise dict
     """
 
-    qa_pipeline = pipeline('question-answering', model=qa_checkpoint, tokenizer=qa_checkpoint)
+    qa_pipeline = pipeline('question-answering', model=qa_checkpoint, tokenizer=qa_checkpoint, device=device)
 
     query_embedding = get_embedded_query(checkpoint=embeddings_checkpoint, query=question, batch_size=batch_size)
 
@@ -141,10 +139,13 @@ def answer(
         laws, query_embedding, index_name=index['sections'], top_k=context['embeddings']['sections']
     )
 
-    # Join top k sections together as a context to QA model
-    context = "\n".join(sections['sections'])
+    if log_info:
+        info_logger(sections, column='sections')
 
-    answers = qa_pipeline(question=question, context=context, top_k=context['answer'])
+    # Join top k sections together as a context to QA model
+    question_context = "\n".join(sections['sections'])
+
+    answers = qa_pipeline(question=question, context=question_context, top_k=context['answer'])
 
     return answers
 
