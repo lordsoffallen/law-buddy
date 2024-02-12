@@ -4,3 +4,4 @@ results when the user’s question is vague. Use an LLM to extract keywords from
 bringing more reference from the law data. To generate this summarize, map-reduce logic can be applied. A span of text
 will be selected and information reduction will be achieved via summarization. 
 - Legal data requires complex reason so bigger models should do better.
+- Investigate https://www.juraforum.de as a better data source replacement
