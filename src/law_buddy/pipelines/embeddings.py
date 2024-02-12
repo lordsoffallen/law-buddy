@@ -3,6 +3,11 @@ from transformers import AutoTokenizer, AutoModel, PreTrainedTokenizer, PreTrain
 import torch
 from typing import Any
 from .tools import device, batch_forward
+import numpy as np
+import logging
+
+
+logger = logging.getLogger(__file__)
 
 
 def get_embeddings_model_and_tokenizer(checkpoint: str) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
@@ -64,10 +69,29 @@ def compute_embeddings(ds: Dataset, checkpoint: str, batch_size: int = 400) -> D
     """ Compute embeddings for the existing GitHub issues """
     model, tokenizer = get_embeddings_model_and_tokenizer(checkpoint)
 
-    ds = ds.map(
-        lambda x: {
-            "embeddings": get_embeddings(model, tokenizer, x["text"], batch_size).detach().cpu().numpy()[0]
-        }
-    )
+    # Embeddings on whole law
+    if 'embeddings' in ds.column_names:
+        logger.info("Dataset already contains embeddings column. Skipping re-computation")
+    else:
+        ds = ds.map(
+            lambda x: {
+                "embeddings": get_embeddings(model, tokenizer, x["text"], batch_size).detach().cpu().numpy()[0]
+            }
+        )
+
+    # Embeddings on whole sections
+    if 'section_embeddings' in ds.column_names:
+        logger.info("Dataset already contains section_embeddings column. Skipping re-computation")
+    else:
+        ds = ds.map(
+            lambda x: {
+                "section_embeddings": np.stack(
+                    [
+                        get_embeddings(model, tokenizer, section, batch_size).detach().cpu().numpy()[0]
+                        for section in x['sections']
+                    ]
+                )
+            }
+        )
 
     return ds
