@@ -20,7 +20,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 question='params:query',
                 embeddings_checkpoint='params:embeddings_model_checkpoint',
                 qa_checkpoint='params:qa_model_checkpoint',
-                vectordb='embeddings#hf',       # If end to end pipeline executed, simply `embeddings` would work too.
+                vectordb='embeddings',
                 index_name='params:index_name',
                 batch_size='params:batch_size',
                 top_k_context='params:top_k_context',

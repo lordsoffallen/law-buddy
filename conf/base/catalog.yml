@@ -9,12 +9,10 @@ laws#pkl:
 laws:
   type: law_buddy.extras.hf.HFDataset
   filepath: data/02_intermediate/
+  dataset_name: ftopal/german-law-dataset
 
 # Git-lfs limits, use #hf version if any issues arise
 embeddings:
   type: law_buddy.extras.hf.HFDataset
   filepath: data/04_feature/
-
-embeddings#hf:
-  type: huggingface.HFDataset
   dataset_name: ftopal/german-law-dataset
