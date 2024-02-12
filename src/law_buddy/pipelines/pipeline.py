@@ -7,11 +7,11 @@ from .model import answer, print_answers
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline([
         node(lambda x: x, inputs='laws#api', outputs='laws#pkl', name='fetch_laws'),
-        node(create_dataset, inputs='laws#pkl', outputs='laws', name='create_dataset'),
+        node(create_dataset, inputs='laws#pkl', outputs='laws#hf', name='create_dataset'),
         node(
             compute_embeddings,
-            inputs=['laws', 'params:embeddings_model_checkpoint', 'params:batch_size'],
-            outputs='embeddings',
+            inputs=['laws#hf', 'params:embeddings_model_checkpoint', 'params:batch_size'],
+            outputs='embeddings#hf',
             name='compute_embeddings',
         ),
         node(
@@ -20,7 +20,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 question='params:query',
                 embeddings_checkpoint='params:embeddings_model_checkpoint',
                 qa_checkpoint='params:qa_model_checkpoint',
-                vectordb='embeddings',
+                vectordb='embeddings#hf',
                 index_name='params:index_name',
                 batch_size='params:batch_size',
                 top_k_context='params:top_k_context',

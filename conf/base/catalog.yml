@@ -6,13 +6,14 @@ laws#pkl:
   type: pickle.PickleDataset
   filepath: data/01_raw/laws.pkl
 
-laws:
+laws#hf:
   type: law_buddy.extras.hf.HFDataset
   filepath: data/02_intermediate/
   dataset_name: ftopal/german-law-dataset
+  credentials: huggingface
 
-# Git-lfs limits, use #hf version if any issues arise
-embeddings:
+embeddings#hf:
   type: law_buddy.extras.hf.HFDataset
   filepath: data/04_feature/
   dataset_name: ftopal/german-law-dataset
+  credentials: huggingface

@@ -9,10 +9,11 @@ logger = logging.getLogger(__file__)
 
 
 class HFDataset(AbstractDataset):
-    def __init__(self, filepath: str = None, dataset_name: str = None):
+    def __init__(self, filepath: str = None, dataset_name: str = None, credentials: dict[Any] = None):
         """ Given a filepath and dataset name """
         self._filepath = filepath
         self._dataset_name = dataset_name
+        self._credentials = credentials
 
     def _load(self) -> Dataset:
         try:
@@ -26,7 +27,13 @@ class HFDataset(AbstractDataset):
         data.save_to_disk(self._filepath)
 
         logger.info("Saving to HuggingFace Hub")
-        data.push_to_hub(self._dataset_name)
+        token = self._credentials.get('write')
+
+        try:
+            data.push_to_hub(self._dataset_name, token=token)
+        except BaseException as e:
+            logger.warning(f"Push to hub failed, provide credentials maybe?")
+            raise e
 
     def _describe(self) -> dict[str, Any]:
         api = HfApi()
