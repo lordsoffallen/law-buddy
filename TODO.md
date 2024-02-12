@@ -5,3 +5,4 @@ bringing more reference from the law data. To generate this summarize, map-reduc
 will be selected and information reduction will be achieved via summarization. 
 - Legal data requires complex reason so bigger models should do better.
 - Investigate https://www.juraforum.de as a better data source replacement
+- Separate law paragraphs by `Nichtamtliches Inhaltsverzeichnis`
