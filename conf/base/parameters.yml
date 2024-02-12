@@ -2,16 +2,19 @@ embeddings_model_checkpoint: sentence-transformers/distiluse-base-multilingual-c
 qa_model_checkpoint: deutsche-telekom/bert-multi-english-german-squad2
 # This parameter controls the embeddings generation step. If you get GPU errors, try to reduce this
 # Increasing this slows down the process a bit
-batch_size: 400
+batch_size: 200
 
 # FAISS index name
-index_name: embeddings
+index:
+  laws: embeddings
+  sections: section_embeddings
 
 # Define how many similar law texts to be passed into the QA model
-top_k_context: 3
-
-# Define how many answers should be returned by the QA model
-top_k_answer: 3
+context:
+  embeddings:
+    laws: 5
+    sections: 10
+  answer: 3
 
 # Whether some information regarding the background process should be printed or not.
 log_info: True

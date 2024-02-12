@@ -1,3 +1,4 @@
+import numpy as np
 from datasets import Dataset, DatasetDict
 from transformers import pipeline
 from transformers.modeling_outputs import QuestionAnsweringModelOutput
@@ -7,18 +8,20 @@ from typing import Any
 import torch
 
 
+def get_embedded_query(checkpoint: str, query: str, batch_size: int = 400):
+    """ Given a user query create embeddings for it """
+    model, tokenizer = get_embeddings_model_and_tokenizer(checkpoint)
+    embedding = get_embeddings(model, tokenizer, [query], batch_size).cpu().detach().numpy()
+    return embedding
+
+
 def find_related_laws(
     ds: Dataset | DatasetDict,
-    checkpoint: str,
-    query: str,
+    embedding: np.ndarray | Any,
     index_name: str = 'embeddings',
-    batch_size: int = 400,
     top_k: int = 3
 ) -> tuple:
     """ Apply FAISS index to find related laws given a question. """
-
-    model, tokenizer = get_embeddings_model_and_tokenizer(checkpoint)
-    embedding = get_embeddings(model, tokenizer, [query], batch_size).cpu().detach().numpy()
 
     if isinstance(ds, DatasetDict):
         ds = ds['train']    # select the train split if it is a dict
@@ -27,6 +30,30 @@ def find_related_laws(
     ds = ds.add_faiss_index(column=index_name)
     scores, samples = ds.get_nearest_examples(index_name, embedding, k=top_k)
 
+    return scores, samples
+
+
+def find_related_sections(
+    ds: dict | Dataset | DatasetDict,
+    embedding: np.ndarray | Any,
+    index_name: str = 'section_embeddings',
+    top_k: int = 3
+) -> tuple:
+
+    if isinstance(ds, dict):
+        ds = Dataset.from_dict(ds)
+
+    if isinstance(ds, DatasetDict):
+        ds = ds['train']
+
+    ds = (ds.with_format("pandas").select_columns(['text', 'sections', 'section_embeddings'])
+            .map(lambda df: df.explode(["sections", "section_embeddings"])))
+
+    ds.reset_format()
+
+    # Add FAISS Index as vector db
+    ds = ds.add_faiss_index(column=index_name)
+    scores, samples = ds.get_nearest_examples(index_name, embedding, k=top_k)
     return scores, samples
 
 
@@ -67,10 +94,9 @@ def answer(
     embeddings_checkpoint: str,
     qa_checkpoint: str,
     vectordb: Dataset | DatasetDict,
-    index_name: str = 'embeddings',
+    index: dict = None,
     batch_size: int = 400,
-    top_k_context: int = 3,
-    top_k_answer: int = 3,
+    context: dict = None,
     log_info: bool = True,
 ) -> list[dict] | dict:
     """ Given a user query, retrieve the most likely answer.
@@ -85,43 +111,40 @@ def answer(
         Model checkpoint for Q&A model
     vectordb: Dataset | DatasetDict
         A Dataset that contains the embeddings. Here we simply use FAISS index to search
-    index_name: str
-        Name of the column that would be used in FAISS as index. This should contain the text embeddings.
+    index: dict
+        Name of the columns that would be used in FAISS as index. This should contain the text embeddings.
     batch_size: int
         Batch size for long context processing. If memory issues occur, reducing these value would help.
-    top_k_context: int
-        Number of relevant information to use in the context for the Q&A model. Higher context means longer processing
-        times. Also note that depending on the input language order of the context can be different so for small values
-        using German or English in the question can result in a different result.
-    top_k_answer: int
-        Number of possible answers to return from the QA model.
+    context: dict
+        Contains a dict for relevant top_k results for both embeddings model and Q&A model
     log_info: bool
         Define whether useful information about the background should be logged or not
 
     Returns
     -------
     answers:
-        If top_k_answer is > 1 then returns list of dicts, otherwise dict
+        If context['answer'] is > 1 then returns list of dicts, otherwise dict
     """
 
     qa_pipeline = pipeline('question-answering', model=qa_checkpoint, tokenizer=qa_checkpoint)
 
+    query_embedding = get_embedded_query(checkpoint=embeddings_checkpoint, query=question, batch_size=batch_size)
+
     _, laws = find_related_laws(
-        vectordb,
-        checkpoint=embeddings_checkpoint,
-        query=question,
-        top_k=top_k_context,
-        batch_size=batch_size,
-        index_name=index_name,
+        vectordb, embedding=query_embedding, top_k=context['embeddings']['laws'], index_name=index['laws']
     )
 
     if log_info:
         info_logger(laws)
 
-    # Join top k laws together as a context to QA model
-    context = "\n".join(laws['text'])
+    _, sections = find_related_sections(
+        laws, query_embedding, index_name=index['sections'], top_k=context['embeddings']['sections']
+    )
 
-    answers = qa_pipeline(question=question, context=context, top_k=top_k_answer)
+    # Join top k sections together as a context to QA model
+    context = "\n".join(sections['sections'])
+
+    answers = qa_pipeline(question=question, context=context, top_k=context['answer'])
 
     return answers
 
