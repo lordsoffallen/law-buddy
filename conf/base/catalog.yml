@@ -15,5 +15,5 @@ laws#hf:
 embeddings#hf:
   type: law_buddy.extras.hf.HFDataset
   filepath: data/04_feature/
-  dataset_name: ftopal/german-law-dataset
+  dataset_name: ftopal/german-law-dataset-with-embeddings
   credentials: huggingface
