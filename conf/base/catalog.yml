@@ -19,5 +19,5 @@ embeddings#hf:
   credentials: huggingface
 
 qa_context:
-  type: pickle.PickleDataSet
+  type: pickle.PickleDataset
   filepath: data/05_model_input/
