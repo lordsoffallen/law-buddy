@@ -10,7 +10,7 @@ index:
   sections: section_embeddings
 
 # Define how many similar law texts to be passed into the QA model
-context:
+top_k:
   embeddings:
     laws: 5
     sections: 10

@@ -1,7 +1,7 @@
 from kedro.pipeline import Pipeline, pipeline, node
 from .data import create_dataset
 from .embeddings import compute_embeddings
-from .model import answer, print_answers
+from .model import answer, print_answers, get_question_context
 
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -15,15 +15,30 @@ def create_pipeline(**kwargs) -> Pipeline:
             name='compute_embeddings',
         ),
         node(
+            get_question_context,
+            inputs=dict(
+                question='params:query',
+                embeddings_checkpoint='params:embeddings_model_checkpoint',
+                vectordb='embeddings#hf',
+                index='params:index',
+                batch_size='params:batch_size',
+                top_k='params:top_k',
+                log_info='params:log_info',
+            ),
+            outputs='qa_context',
+            name='get_question_context',
+        ),
+        node(
             answer,
             inputs=dict(
                 question='params:query',
                 embeddings_checkpoint='params:embeddings_model_checkpoint',
                 qa_checkpoint='params:qa_model_checkpoint',
+                qa_context='qa_context',
                 vectordb='embeddings#hf',
                 index='params:index',
                 batch_size='params:batch_size',
-                context='params:context',
+                top_k='params:top_k',
                 log_info='params:log_info',
             ),
             outputs='answers',

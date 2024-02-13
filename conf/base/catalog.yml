@@ -17,3 +17,7 @@ embeddings#hf:
   filepath: data/04_feature/
   dataset_name: ftopal/german-law-dataset-with-embeddings
   credentials: huggingface
+
+qa_context:
+  type: pickle.PickleDataSet
+  filepath: data/05_model_input/
