@@ -10,13 +10,13 @@ laws#hf:
   type: law_buddy.extras.hf.HFDataset
   filepath: data/02_intermediate/
   dataset_name: ftopal/german-law-dataset
-  credentials: huggingface
+  # credentials: huggingface
 
 embeddings#hf:
   type: law_buddy.extras.hf.HFDataset
   filepath: data/04_feature/
   dataset_name: ftopal/german-law-dataset-with-embeddings
-  credentials: huggingface
+  # credentials: huggingface
 
 qa_context:
   type: pickle.PickleDataset
