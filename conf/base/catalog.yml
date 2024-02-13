@@ -20,4 +20,4 @@ embeddings#hf:
 
 qa_context:
   type: pickle.PickleDataset
-  filepath: data/05_model_input/
+  filepath: data/05_model_input/context.pkl
