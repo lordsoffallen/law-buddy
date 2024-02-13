@@ -26,8 +26,8 @@ ignore = [ "E501",]
 
 [project.entry-points."kedro.hooks"]
 
-[tool.pytest.ini_options]
-addopts = "--cov-report term-missing --cov src/law_buddy -ra"
+# [tool.pytest.ini_options]
+# addopts = "--cov-report term-missing --cov src/law_buddy -ra"
 
 [tool.coverage.report]
 fail_under = 0
