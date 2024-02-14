@@ -12,24 +12,28 @@ from pathlib import Path
 
 import pytest
 
-from kedro.config import ConfigLoader
+from kedro.config import OmegaConfigLoader
 from kedro.framework.context import KedroContext
 from kedro.framework.hooks import _create_hook_manager
 from kedro.framework.project import settings
 
 
+PROJECT_PATH = Path.cwd().parent
+
+
 @pytest.fixture
 def config_loader():
-    return ConfigLoader(conf_source=str(Path.cwd() / settings.CONF_SOURCE))
+    return OmegaConfigLoader(conf_source=str(PROJECT_PATH / settings.CONF_SOURCE))
 
 
 @pytest.fixture
 def project_context(config_loader):
     return KedroContext(
         package_name="law_buddy",
-        project_path=Path.cwd(),
+        project_path=PROJECT_PATH,
         config_loader=config_loader,
         hook_manager=_create_hook_manager(),
+        env=None,
     )
 
 
@@ -39,3 +43,6 @@ def project_context(config_loader):
 class TestProjectContext:
     def test_project_path(self, project_context):
         assert project_context.project_path == Path.cwd()
+
+    def test_catalog_load(self, project_context):
+        project_context.catalog.list()

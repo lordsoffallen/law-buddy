@@ -1,18 +1,32 @@
 from kedro.pipeline import Pipeline, pipeline, node
 from .data import create_dataset
 from .embeddings import compute_embeddings
-from .model import answer, print_answers
+from .model import answer, print_answers, get_question_context
 
 
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline([
         node(lambda x: x, inputs='laws#api', outputs='laws#pkl', name='fetch_laws'),
-        node(create_dataset, inputs='laws#pkl', outputs='laws', name='create_dataset'),
+        node(create_dataset, inputs='laws#pkl', outputs='laws#hf', name='create_dataset'),
         node(
             compute_embeddings,
-            inputs=['laws', 'params:embeddings_model_checkpoint', 'params:batch_size'],
-            outputs='embeddings',
+            inputs=['laws#hf', 'params:embeddings_model_checkpoint', 'params:batch_size'],
+            outputs='embeddings#hf',
             name='compute_embeddings',
+        ),
+        node(
+            get_question_context,
+            inputs=dict(
+                question='params:query',
+                embeddings_checkpoint='params:embeddings_model_checkpoint',
+                vectordb='embeddings#hf',
+                index='params:index',
+                batch_size='params:batch_size',
+                top_k='params:top_k',
+                log_info='params:log_info',
+            ),
+            outputs='qa_context',
+            name='get_question_context',
         ),
         node(
             answer,
@@ -20,11 +34,11 @@ def create_pipeline(**kwargs) -> Pipeline:
                 question='params:query',
                 embeddings_checkpoint='params:embeddings_model_checkpoint',
                 qa_checkpoint='params:qa_model_checkpoint',
-                vectordb='embeddings#hf',       # If end to end pipeline executed, simply `embeddings` would work too.
-                index_name='params:index_name',
+                qa_context='qa_context',
+                vectordb='embeddings#hf',
+                index='params:index',
                 batch_size='params:batch_size',
-                top_k_context='params:top_k_context',
-                top_k_answer='params:top_k_answer',
+                top_k='params:top_k',
                 log_info='params:log_info',
             ),
             outputs='answers',
